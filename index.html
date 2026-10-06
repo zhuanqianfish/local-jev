@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>本地版 Jev —— 浏览器端 System One 判断模型</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>⚖️ 本地版 Jev</h1>
+      <p class="sub">state + questions 进，{ noul, choice, score } 出 —— 全部浏览器本地推理，零 token 费用</p>
+      <div id="device-status" class="status">检测运行环境…</div>
+    </header>
+
+    <section class="card">
+      <h2>1. 加载判断模型</h2>
+      <label>模型（NLI 零样本分类，需带 ONNX 权重）
+        <input id="model" type="text" value="MoritzLaurer/mDeBERTa-v3-base-mnli-xnli" spellcheck="false" />
+      </label>
+      <p class="hint">默认是多语言（含中文）NLI 模型，int8 量化约 280MB，首次下载后走浏览器缓存。
+        英文场景可换 <code>Xenova/bart-large-mnli</code>（精度更高）。</p>
+      <button id="btn-load">⬇️ 加载模型</button>
+    </section>
+
+    <section class="card">
+      <h2>2. 输入 state（待判断的文本或 JSON）</h2>
+      <div class="row" style="margin-top:0">
+        <button id="preset-cs" type="button" class="ghost">📞 客服工单示例</button>
+        <button id="preset-mod" type="button" class="ghost">🛡️ 内容审核示例</button>
+      </div>
+      <textarea id="state" rows="4" spellcheck="false"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>3. 定义 questions（JSON）</h2>
+      <textarea id="questions" rows="12" spellcheck="false" class="code"></textarea>
+      <p class="hint">三种原语：<code>noul</code>（statement/negation）→ 概率；
+        <code>choice</code>（options: {key: 描述}）→ 选项+概率+置信度；
+        <code>score</code>（levels: 有序数组）→ 期望分+分布+置信度。注意用<strong>陈述句</strong>而非疑问句，NLI 模型吃陈述句。</p>
+      <button id="btn-ask" disabled>⚖️ 运行判断</button>
+      <button id="btn-release" disabled class="ghost">🧹 释放模型</button>
+    </section>
+
+    <section class="card">
+      <h2>4. 结果 <span id="timing" class="timing"></span></h2>
+      <div class="progress"><div id="bar"></div></div>
+      <div id="status-text" class="status-text">就绪</div>
+      <div id="results"></div>
+    </section>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
