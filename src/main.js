@@ -48,13 +48,9 @@ $('preset-mod').onclick = () => applyPreset('mod');
 applyPreset('cs');
 
 // ---------- 环境 ----------
-if (navigator.gpu) {
-  deviceStatus.textContent = '✅ WebGPU 可用，将使用 GPU 加速推理';
-  deviceStatus.classList.add('ok');
-} else {
-  deviceStatus.textContent = '⚠️ 无 WebGPU，将回退到 WASM（CPU）推理，速度较慢';
-  deviceStatus.classList.add('warn');
-}
+// 注意：navigator.gpu 存在不代表真能拿到 GPU adapter（如未开硬件加速），
+// 实际后端以模型加载成功时为准（webgpu 优先，失败自动回退 wasm）。
+deviceStatus.textContent = '就绪：加载模型后自动选择最优推理后端（WebGPU 优先，失败回退 CPU）';
 
 // ---------- 加载 ----------
 $('btn-load').onclick = async () => {
@@ -76,7 +72,16 @@ $('btn-load').onclick = async () => {
         }
       },
     });
-    statusText.textContent = `✅ 模型就绪（${jev.device}）`;
+    if (jev.device === 'webgpu') {
+      deviceStatus.textContent = '✅ WebGPU 可用，使用 GPU 加速推理';
+      deviceStatus.className = 'status ok';
+      statusText.textContent = '✅ 模型就绪（webgpu）';
+    } else {
+      deviceStatus.textContent =
+        '⚠️ WebGPU 不可用，已回退 CPU（WASM）推理：能用但较慢。如需加速：Chrome 设置 → 系统 → 开启"使用硬件加速模式"后重启浏览器';
+      deviceStatus.className = 'status warn';
+      statusText.textContent = `✅ 模型就绪（${jev.device} 回退模式）`;
+    }
     bar.style.width = '100%';
     $('btn-ask').disabled = false;
     $('btn-release').disabled = false;

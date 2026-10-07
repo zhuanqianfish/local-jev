@@ -36,21 +36,28 @@ export class LocalJev {
   } = {}) {
     const isNode =
       typeof process !== 'undefined' && process?.release?.name === 'node';
-    // Node 里 transformers.js 只支持 cpu/cuda；浏览器里用 webgpu（无则回退 wasm）
-    const device = isNode
-      ? 'cpu'
-      : typeof navigator !== 'undefined' && navigator.gpu
-        ? 'webgpu'
-        : 'wasm';
-    const classifier = await pipeline('zero-shot-classification', model, {
-      device,
-      dtype,
-      progress_callback: progress || undefined,
-    });
-    const jev = new LocalJev(classifier);
-    jev.hypothesisTemplate = hypothesisTemplate;
-    jev.device = device;
-    return jev;
+    // Node 里 transformers.js 只支持 cpu/cuda；浏览器里优先 webgpu，
+    // adapter 获取失败（如未开硬件加速）时自动回退 wasm，而不是直接抛错
+    const candidates = isNode ? ['cpu'] : ['webgpu', 'wasm'];
+    let lastError = null;
+    for (const device of candidates) {
+      try {
+        const classifier = await pipeline('zero-shot-classification', model, {
+          device,
+          dtype,
+          progress_callback: progress || undefined,
+        });
+        const jev = new LocalJev(classifier);
+        jev.hypothesisTemplate = hypothesisTemplate;
+        jev.device = device;
+        jev.deviceFallback = device !== candidates[0];
+        return jev;
+      } catch (e) {
+        lastError = e;
+        if (!isBackendError(e)) throw e; // 模型/网络等真错误直接抛，不掩盖
+      }
+    }
+    throw lastError;
   }
 
   /** state: 字符串或 JSON 对象；questions: { name: {type, ...} } */
@@ -146,6 +153,7 @@ export class LocalJev {
 }
 
 function normalizeOptions(options) {
+
   if (Array.isArray(options)) return { keys: options.slice(), labels: options.slice() };
   const keys = Object.keys(options);
   return { keys, labels: keys.map((k) => options[k] || k) };
@@ -156,4 +164,10 @@ function labelOf(key, keys, labels) {
 function keyOf(label, keys, labels) {
   const i = labels.indexOf(label);
   return i >= 0 ? keys[i] : label;
+}
+
+/** 判断是否为后端/设备错误（这类才值得换 device 重试） */
+function isBackendError(e) {
+  const msg = String(e?.message || e);
+  return /webgpu|no available backend|failed to get gpu adapter|adapter/i.test(msg);
 }
